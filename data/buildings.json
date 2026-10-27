@@ -1,0 +1,19 @@
+{
+  "buildings": [
+    {"id": "REPF", "name": "Research Park / REPF", "lat": 35.1935, "lon": -97.4455, "walk_min_from_campus_core": 18},
+    {"id": "DALE", "name": "Dale Hall", "lat": 35.2072, "lon": -97.4458, "walk_min_from_campus_core": 8},
+    {"id": "BIZZ", "name": "Bizzell Memorial Library", "lat": 35.2078, "lon": -97.4459, "walk_min_from_campus_core": 5},
+    {"id": "DEVH", "name": "Devon Energy Hall", "lat": 35.2105, "lon": -97.4418, "walk_min_from_campus_core": 10},
+    {"id": "FH", "name": "Felgar Hall", "lat": 35.2096, "lon": -97.4426, "walk_min_from_campus_core": 9},
+    {"id": "NH", "name": "Nielsen Hall", "lat": 35.2089, "lon": -97.4441, "walk_min_from_campus_core": 7},
+    {"id": "CATO", "name": "Cate Center / Cato", "lat": 35.2081, "lon": -97.4475, "walk_min_from_campus_core": 6},
+    {"id": "SARK", "name": "Sarkeys Energy Center", "lat": 35.2099, "lon": -97.4435, "walk_min_from_campus_core": 8},
+    {"id": "GITT", "name": "Gaylord Family Oklahoma Memorial Stadium area", "lat": 35.2057, "lon": -97.4425, "walk_min_from_campus_core": 12},
+    {"id": "CORE", "name": "Campus Core (South Oval)", "lat": 35.2075, "lon": -97.4450, "walk_min_from_campus_core": 0}
+  ],
+  "travel_modes": {
+    "walk_mph": 3.0,
+    "bike_mph": 10.0,
+    "drive_buffer_min": 12
+  }
+}

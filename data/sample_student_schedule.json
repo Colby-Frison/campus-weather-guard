@@ -1,0 +1,52 @@
+{
+  "role": "student",
+  "name": "Alex Sooner",
+  "home_base": "CORE",
+  "classes": [
+    {
+      "course": "CS 2413",
+      "title": "Data Structures",
+      "building": "DEVH",
+      "room": "120",
+      "days": ["Mon", "Wed"],
+      "start": "09:00",
+      "end": "10:15"
+    },
+    {
+      "course": "MATH 2423",
+      "title": "Calculus II",
+      "building": "FH",
+      "room": "201",
+      "days": ["Mon", "Wed", "Fri"],
+      "start": "11:00",
+      "end": "11:50"
+    },
+    {
+      "course": "ENGL 1213",
+      "title": "Composition II",
+      "building": "DALE",
+      "room": "122",
+      "days": ["Tue", "Thu"],
+      "start": "13:00",
+      "end": "14:15"
+    },
+    {
+      "course": "PHYS 2414",
+      "title": "General Physics",
+      "building": "NH",
+      "room": "160",
+      "days": ["Tue", "Thu"],
+      "start": "15:30",
+      "end": "16:45"
+    },
+    {
+      "course": "MUNM 3113",
+      "title": "World Music",
+      "building": "CATO",
+      "room": "150",
+      "days": ["Fri"],
+      "start": "14:00",
+      "end": "16:40"
+    }
+  ]
+}

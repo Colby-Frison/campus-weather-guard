@@ -1,0 +1,33 @@
+{
+  "role": "professor",
+  "name": "Dr. Jordan Reed",
+  "classes": [
+    {
+      "course": "METR 1014",
+      "title": "Introduction to Weather & Climate",
+      "building": "SARK",
+      "room": "115",
+      "days": ["Mon", "Wed", "Fri"],
+      "start": "10:00",
+      "end": "10:50"
+    },
+    {
+      "course": "METR 4424",
+      "title": "Synoptic Meteorology",
+      "building": "NH",
+      "room": "270",
+      "days": ["Tue", "Thu"],
+      "start": "14:00",
+      "end": "15:15"
+    },
+    {
+      "course": "METR 3613",
+      "title": "Meteorological Measurements",
+      "building": "REPF",
+      "room": "Lab A",
+      "days": ["Wed"],
+      "start": "15:00",
+      "end": "17:40"
+    }
+  ]
+}
