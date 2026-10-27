@@ -61,8 +61,14 @@ streamlit run app.py
 
 ## Weather path
 
-1. If `SNOWFLAKE_*` env vars are set → run `sql/norman_weather.sql`.
-2. Else → `data/sample_weather.json` (committed demo storm week).
+1. If `SNOWFLAKE_*` env vars (or sidebar session creds) are set → run `sql/norman_weather.sql` against **Snowflake Public Data (Free)** NOAA Norman tables, then expand daily → daytime hourly.
+2. Else → `data/sample_weather.json` (committed demo storm week), or `data/cache_weather.json` from the last successful pull.
+
+```powershell
+python scripts/test_integrations.py
+```
+
+In the app sidebar: **Warm GPU model**, **Test Snowflake connection**, paste trial credentials.
 
 ## Measured LLM latency (Hack Day laptop, RTX 4060)
 

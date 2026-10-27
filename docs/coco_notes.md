@@ -4,22 +4,35 @@ Hacklahoma Hacktoberfest Hack Day (2026-10-26). Work started at the event on Col
 
 ## What CoCo helped with
 
-- Explored Snowflake's free / trial **weather & environment** marketplace-style data for **Norman, OK**.
-- Drafted the hourly forecast + alert overlap query committed at [`sql/norman_weather.sql`](../sql/norman_weather.sql).
-- Confirmed column shapes (temp °F, precip inches / probability, wind / gust, condition text, alert event types) that the app normalizes in `src/weather.py`.
+- Explored **Snowflake Public Data (Free)** weather & environment tables for **Norman, OK**.
+- Drafted the NOAA Norman daily query committed at [`sql/norman_weather.sql`](../sql/norman_weather.sql).
+- Mapped free-tier column shapes (station index + metrics timeseries variables) that `src/weather.py` normalizes into daytime hourly points for schedule overlap.
 
 ## Dataset named in the demo
 
-**WEATHER__ENVIRONMENT** (Snowflake free weather dataset family) — Norman / Cleveland County hourly forecast observations with optional alert overlay.
+**Snowflake Public Data (Free)** → shared database `SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE`
 
-When Snowflake credentials are not present, the app loads [`data/sample_weather.json`](../data/sample_weather.json), a committed cache shaped like that pull so judges can run the demo offline.
+Primary tables used:
+
+| Table | Role |
+| --- | --- |
+| `NOAA_WEATHER_STATION_INDEX` | Find Norman / Oklahoma stations |
+| `NOAA_WEATHER_METRICS_TIMESERIES` | Daily temp / precip / wind values |
+
+Notes:
+
+- Free NOAA history can lag (~months). That still proves the Snowflake path for judges.
+- NWS hourly forecasts / alerts live in broader Weather & Environment products; if your trial includes them, adapt SQL column names and the app will accept a `temp_f` + `time` shaped result directly.
+- When credentials are absent or the query fails, the app loads [`data/sample_weather.json`](../data/sample_weather.json) (or `data/cache_weather.json` from the last successful pull).
 
 ## How to wire live Snowflake
 
-1. Create a trial account and note account locator, user, password, warehouse.
-2. Copy `.env.example` → `.env` and fill `SNOWFLAKE_*` values (never commit `.env`).
-3. Uncheck **Force sample weather** in the Streamlit sidebar.
-4. If the marketplace schema names differ, edit `sql/norman_weather.sql` to match — CoCo is useful for discovering the exact `DATABASE.SCHEMA.TABLE` identifiers.
+1. Open a Snowflake trial (or event-provided account).
+2. Marketplace → search **Snowflake Public Data (Free)** → **Get** (do not rename).
+3. Copy `.env.example` → `.env` and fill `SNOWFLAKE_ACCOUNT` / `USER` / `PASSWORD` (never commit `.env`).
+   - Or paste the same values in the Streamlit sidebar **Credentials (session)** form.
+4. Run `python scripts/test_integrations.py` or click **Test Snowflake connection**.
+5. Uncheck **Force sample weather**.
 
 ## Dual-challenge checklist
 

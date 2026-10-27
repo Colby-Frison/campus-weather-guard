@@ -1,43 +1,44 @@
--- Campus Weather Guard — Norman, OK weather pull
--- Explored with Snowflake CoCo against free WEATHER__ENVIRONMENT-style datasets.
--- Adjust database/schema/table names to match your trial marketplace listing.
+-- Campus Weather Guard — Norman, OK weather pulls
+-- Explored with Snowflake CoCo against Snowflake Public Data (Free).
+--
+-- 1) Preferred live path after Marketplace → Get "Snowflake Public Data (Free)":
+--    Database share is typically SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE
+-- 2) NOAA tables are daily historical (free tier may lag ~months).
+-- 3) App expands daily Norman rows into daytime hourly points in src/weather.py.
+-- 4) If you later add NWS forecast/alert listings, adapt column names below.
 
--- Example: locate Norman / Cleveland County stations
--- SELECT * FROM WEATHER__ENVIRONMENT.DATA.LOCATION
--- WHERE UPPER(CITY) LIKE '%NORMAN%' OR UPPER(STATE) = 'OK'
--- LIMIT 50;
-
--- Hourly forecast / observation style query used for the demo path
-WITH norman AS (
-  SELECT
-    DATE_TRUNC('HOUR', OBSERVED_AT) AS hour_ts,
-    AVG(TEMP_F) AS temp_f,
-    SUM(PRECIP_IN) AS precip_in,
-    AVG(PRECIP_PROB) AS precip_prob,
-    AVG(WIND_MPH) AS wind_mph,
-    MAX(GUST_MPH) AS gust_mph,
-    ANY_VALUE(CONDITION_TEXT) AS condition
-  FROM WEATHER__ENVIRONMENT.PUBLIC.HOURLY_FORECAST
-  WHERE
-    UPPER(CITY) = 'NORMAN'
-    AND UPPER(STATE) IN ('OK', 'OKLAHOMA')
-    AND OBSERVED_AT >= DATEADD('hour', -6, CURRENT_TIMESTAMP())
-    AND OBSERVED_AT < DATEADD('day', 5, CURRENT_TIMESTAMP())
-  GROUP BY 1
-)
+-- NOAA daily metrics for Norman / Cleveland County area stations
 SELECT
-  hour_ts AS time,
-  ROUND(temp_f, 1) AS temp_f,
-  ROUND(COALESCE(precip_in, 0), 3) AS precip_in,
-  ROUND(COALESCE(precip_prob, 0), 0) AS precip_prob,
-  ROUND(COALESCE(wind_mph, 0), 1) AS wind_mph,
-  ROUND(COALESCE(gust_mph, 0), 1) AS gust_mph,
-  condition
-FROM norman
-ORDER BY time;
+  DATE_TRUNC('DAY', ts.date) AS obs_date,
+  idx.noaa_weather_station_id AS station_id,
+  idx.noaa_weather_station_name AS station_name,
+  idx.city_name AS city,
+  idx.state_name AS state,
+  MAX(CASE WHEN LOWER(ts.variable) LIKE '%temp%avg%' OR LOWER(ts.variable) = 'average_temperature'
+           THEN ts.value END) AS temp_avg_c,
+  MAX(CASE WHEN LOWER(ts.variable) LIKE '%temp%max%' OR LOWER(ts.variable) = 'maximum_temperature'
+           THEN ts.value END) AS temp_max_c,
+  MAX(CASE WHEN LOWER(ts.variable) LIKE '%temp%min%' OR LOWER(ts.variable) = 'minimum_temperature'
+           THEN ts.value END) AS temp_min_c,
+  MAX(CASE WHEN LOWER(ts.variable) LIKE '%precip%' THEN ts.value END) AS precip_mm,
+  MAX(CASE WHEN LOWER(ts.variable) LIKE '%wind%' THEN ts.value END) AS wind_mps
+FROM SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE.NOAA_WEATHER_METRICS_TIMESERIES ts
+JOIN SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE.NOAA_WEATHER_STATION_INDEX idx
+  ON ts.noaa_weather_station_id = idx.noaa_weather_station_id
+WHERE
+  UPPER(COALESCE(idx.state_name, '')) IN ('OK', 'OKLAHOMA')
+  AND (
+    UPPER(COALESCE(idx.city_name, '')) LIKE '%NORMAN%'
+    OR UPPER(COALESCE(idx.noaa_weather_station_name, '')) LIKE '%NORMAN%'
+  )
+  AND ts.date >= DATEADD('day', -14, CURRENT_DATE())
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY obs_date DESC
+LIMIT 14;
 
--- Alert overlay (when available in listing)
--- SELECT VALID_FROM, VALID_TO, EVENT_TYPE, SEVERITY, HEADLINE
--- FROM WEATHER__ENVIRONMENT.PUBLIC.ALERTS
--- WHERE UPPER(AREA_DESC) LIKE '%NORMAN%'
---    OR UPPER(AREA_DESC) LIKE '%CLEVELAND%OK%';
+-- Discovery helpers (run in CoCo / Snowsight; commented so the connector skips them)
+-- SHOW DATABASES;
+-- SHOW TABLES IN SCHEMA SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE;
+-- SELECT DISTINCT variable FROM SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE.NOAA_WEATHER_METRICS_TIMESERIES LIMIT 50;
+-- SELECT * FROM SNOWFLAKE_PUBLIC_DATA_FREE.PUBLIC_DATA_FREE.NOAA_WEATHER_STATION_INDEX
+-- WHERE UPPER(state_name) IN ('OK','OKLAHOMA') AND UPPER(city_name) LIKE '%NORMAN%' LIMIT 20;

@@ -9,61 +9,117 @@ from typing import Any
 
 import requests
 
-DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:2b")
-DEFAULT_API_MODEL = os.getenv("LLM_API_MODEL", "gemma-2-2b-it")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
-LLM_API_BASE = os.getenv("LLM_API_BASE", "https://api.openai.com/v1")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-
-
 STUDENT_SYSTEM = (
     "You are Campus Weather Guard for University of Oklahoma students in Norman. "
     "Given structured commute plans, write a short plain-language weekly briefing. "
-    "Emphasize leave-by times, travel mode, and what to bring. Be concise."
+    "Emphasize leave-by times, travel mode, and what to bring. Be concise. No emojis."
 )
 
 PROFESSOR_SYSTEM = (
     "You are Campus Weather Guard for OU professors. "
     "Given teaching sessions with weather severity, write a short cancel-watch briefing. "
-    "Advise only — never auto-cancel. Flag severe overlaps clearly."
+    "Advise only — never auto-cancel. Flag severe overlaps clearly. No emojis."
 )
 
 
+def _env(name: str, default: str = "") -> str:
+    return (os.getenv(name) or default).strip()
+
+
+def ollama_host() -> str:
+    return _env("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+
+
+def ollama_model() -> str:
+    return _env("OLLAMA_MODEL", "gemma2:2b")
+
+
+def api_model() -> str:
+    return _env("LLM_API_MODEL", "gemma-2-2b-it")
+
+
+def api_base() -> str:
+    return _env("LLM_API_BASE", "https://api.openai.com/v1").rstrip("/")
+
+
+def api_key() -> str:
+    return _env("LLM_API_KEY", "")
+
+
 def active_provider() -> str:
-    return (os.getenv("LLM_PROVIDER") or "ollama").strip().lower()
+    return _env("LLM_PROVIDER", "ollama").lower()
+
+
+def ollama_status() -> dict[str, Any]:
+    """Ping Ollama and report installed models / preferred model readiness."""
+    host = ollama_host()
+    model = ollama_model()
+    started = time.perf_counter()
+    try:
+        resp = requests.get(f"{host}/api/tags", timeout=5)
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        resp.raise_for_status()
+        models = [m.get("name", "") for m in (resp.json().get("models") or [])]
+        ready = any(m == model or m.startswith(f"{model}") or model in m for m in models)
+        return {
+            "ok": True,
+            "host": host,
+            "latency_ms": latency_ms,
+            "models": models,
+            "preferred_model": model,
+            "model_ready": ready,
+            "error": None if ready else f"Model '{model}' not found. Run: ollama pull {model}",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "host": host,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            "models": [],
+            "preferred_model": model,
+            "model_ready": False,
+            "error": str(exc),
+        }
+
+
+def warmup_ollama(prompt: str = "Reply with exactly: ready") -> dict[str, Any]:
+    """Load model onto GPU and keep it warm (keeps cold-start off the demo path)."""
+    return generate(prompt, "You are a warmup probe. Reply briefly.", force_provider="ollama")
 
 
 def _ollama_generate(prompt: str, system: str, model: str | None = None) -> tuple[str, float, str]:
-    model = model or DEFAULT_OLLAMA_MODEL
-    url = f"{OLLAMA_HOST.rstrip('/')}/api/generate"
+    model = model or ollama_model()
+    url = f"{ollama_host()}/api/generate"
     payload = {
         "model": model,
         "prompt": prompt,
         "system": system,
         "stream": False,
+        "keep_alive": _env("OLLAMA_KEEP_ALIVE", "30m"),
         "options": {
-            # Prefer GPU; Ollama uses CUDA when available on this machine
-            "num_gpu": int(os.getenv("OLLAMA_NUM_GPU", "99")),
+            # 99 = use as many GPU layers as fit (CUDA on RTX machines)
+            "num_gpu": int(_env("OLLAMA_NUM_GPU", "99") or "99"),
             "temperature": 0.3,
-            "num_predict": 280,
+            "num_predict": int(_env("OLLAMA_NUM_PREDICT", "280") or "280"),
         },
     }
     started = time.perf_counter()
-    resp = requests.post(url, json=payload, timeout=180)
+    resp = requests.post(url, json=payload, timeout=int(_env("OLLAMA_TIMEOUT", "180") or "180"))
     latency = time.perf_counter() - started
     resp.raise_for_status()
     data = resp.json()
-    text = data.get("response") or data.get("thinking") or ""
-    return text.strip(), latency, f"ollama:{model}"
+    text = (data.get("response") or data.get("thinking") or "").strip()
+    return text, latency, f"ollama:{model}"
 
 
 def _api_generate(prompt: str, system: str, model: str | None = None) -> tuple[str, float, str]:
-    model = model or DEFAULT_API_MODEL
-    if not LLM_API_KEY:
+    model = model or api_model()
+    key = api_key()
+    if not key:
         raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER=api")
-    url = f"{LLM_API_BASE.rstrip('/')}/chat/completions"
+    url = f"{api_base()}/chat/completions"
     headers = {
-        "Authorization": f"Bearer {LLM_API_KEY}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -84,9 +140,13 @@ def _api_generate(prompt: str, system: str, model: str | None = None) -> tuple[s
     return text, latency, f"api:{model}"
 
 
-def generate(prompt: str, system: str) -> dict[str, Any]:
+def generate(
+    prompt: str,
+    system: str,
+    force_provider: str | None = None,
+) -> dict[str, Any]:
     """Run generation with provider switch. Returns text, latency_s, provider label."""
-    provider = active_provider()
+    provider = (force_provider or active_provider()).lower()
     try:
         if provider == "api":
             text, latency, label = _api_generate(prompt, system)
@@ -100,8 +160,7 @@ def generate(prompt: str, system: str) -> dict[str, Any]:
             "error": None,
         }
     except Exception as exc:  # noqa: BLE001
-        # Auto-fallback: if ollama fails and API key exists, try API once
-        if provider != "api" and LLM_API_KEY:
+        if provider != "api" and api_key():
             try:
                 text, latency, label = _api_generate(prompt, system)
                 return {
@@ -195,4 +254,4 @@ def brief_professor_alerts(alerts: list[dict[str, Any]]) -> dict[str, Any]:
 
 def time_ollama_generate(prompt: str = "Say ready in five words.") -> dict[str, Any]:
     """Utility used at startup / demo to measure GPU Ollama latency."""
-    return generate(prompt, "You are a latency probe. Reply briefly.")
+    return generate(prompt, "You are a latency probe. Reply briefly.", force_provider="ollama")
